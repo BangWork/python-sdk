@@ -39,20 +39,39 @@ class OnesTestRunner(object):
     def __init__(self, url, runner=None):
         self.url = url
         self.runner = unittest.TextTestRunner() if runner is None else runner
-        self.executions = defaultdict(dict)
+        self._executions = defaultdict(dict)
+        self._status = 'unknown'
 
     def run(self, test):
         self._override_run(test)
+        
+        start_time = self._current_seconds()
         self.runner.run(test)
+        finish_time = self._current_seconds()
 
-        for id, run in self.executions.items():
+        for id, run in self._executions.items():
             run['id'] = id
-        payload = {
-            'test': {
-                 'executions': self.executions
+            run['name'] = id
+            run['language'] = 'python'
+            run['framework'] = 'unittest'
+        
+        self._executions.values()
+        data = {
+            'action': 'stage',
+            'stage': {
+                'type': 'test',
+                'name': 'test',
+                'start_time': start_time,
+                'finish_time': finish_time,
+                'status': self._status,
+            },
+            'payload': {
+                'test': {
+                    'executions': list(self._executions.values())
+                }
             }
         }
-        self._request_ones_pipeline(self.url, payload)
+        self._request_ones_pipeline(self.url, data)
 
     def _override_run(self, test):
         origin = test.run
@@ -70,12 +89,13 @@ class OnesTestRunner(object):
                 self._override_failure_finisher(result, 'addSkip', 'skip')
                 setattr(result, '_overridden_by_ones', True)
             origin(result)
+            self._status = 'success' if result.wasSuccessful() else 'failure'
         test.run = types.MethodType(replacement, test)
 
     def _override_start_test(self, result):
         origin = result.startTest
         def replacement(result_self, test):
-            execution = self.executions[test.id()]
+            execution = self._executions[test.id()]
             execution['start_time'] = self._current_millis()
             execution['description'] = test.shortDescription()
             origin(test)
@@ -85,7 +105,7 @@ class OnesTestRunner(object):
         origin = result.stopTest
         def replacement(result_self, test):
             origin(test)
-            execution = self.executions[test.id()]
+            execution = self._executions[test.id()]
             execution['finish_time'] = self._current_millis()
         result.stopTest = types.MethodType(replacement, result)
 
@@ -95,7 +115,7 @@ class OnesTestRunner(object):
             return
         def replacement(result_self, test, err):
             origin(test, err)
-            execution = self.executions[test.id()]
+            execution = self._executions[test.id()]
             execution['result'] = label
             execution['message'] = self._build_error_message(err, test)
         setattr(result, finisher_name, types.MethodType(replacement, result))
@@ -106,9 +126,12 @@ class OnesTestRunner(object):
             return
         def replacement(result_self, test):
             origin(test)
-            execution = self.executions[test.id()]
+            execution = self._executions[test.id()]
             execution['result'] = label
         setattr(result, finisher_name, types.MethodType(replacement, result))
+
+    def _current_seconds(self):
+        return int(round(time.time()))
 
     def _current_millis(self):
         return int(round(time.time() * 1000))
@@ -146,6 +169,7 @@ class OnesTestRunner(object):
         headers = {
             'Content-Type': 'application/json'
         }
-        req = Request(url, json.dumps(data), headers)
+        print(json.dumps(data))
+        req = Request(url, json.dumps(data).encode('utf-8'), headers)
         resp = urlopen(req)
         return json.load(resp)
