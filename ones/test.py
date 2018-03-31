@@ -169,7 +169,6 @@ class OnesTestRunner(object):
         headers = {
             'Content-Type': 'application/json'
         }
-        print(json.dumps(data))
         req = Request(url, json.dumps(data).encode('utf-8'), headers)
         resp = urlopen(req)
         return json.load(resp)
