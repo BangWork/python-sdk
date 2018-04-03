@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='ones',
-    version='0.2.0',
+    version='0.3.0',
     description='ONES.AI SDK',
     long_description='see:\nhttps://github.com/BangWork/python-sdk\n',
     url='https://github.com/BangWork/python-sdk',
