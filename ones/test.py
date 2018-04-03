@@ -15,6 +15,7 @@
 from __future__ import print_function
 
 import json
+import os
 import time
 import traceback
 import types
@@ -36,13 +37,17 @@ class OnesTestRunner(object):
 
     If runner is None, a TextTestRunner is created and used. 
     """
-    def __init__(self, url, runner=None):
-        self.url = url
+    def __init__(self, url=None, runner=None):
+        self.url = os.getenv('ONES_PIPELINE_URL') if url is None else url
         self.runner = unittest.TextTestRunner() if runner is None else runner
         self._executions = defaultdict(dict)
         self._status = 'unknown'
 
     def run(self, test):
+        if not self.url:
+            self.runner.run(test)
+            return
+
         self._override_run(test)
         
         start_time = self._current_seconds()
