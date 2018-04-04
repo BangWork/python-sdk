@@ -91,7 +91,7 @@ class OnesTestRunner(object):
                 self._override_failure_finisher(result, 'addFailure', 'failure')
                 self._override_failure_finisher(result, 'addExpectedFailure', 'expected_failure')
                 self._override_failure_finisher(result, 'addError', 'error')
-                self._override_failure_finisher(result, 'addSkip', 'skip')
+                self._override_skip_finisher(result, 'addSkip', 'skip')
                 setattr(result, '_overridden_by_ones', True)
             origin(result)
             self._status = 'success' if result.wasSuccessful() else 'failure'
@@ -133,6 +133,17 @@ class OnesTestRunner(object):
             origin(test)
             execution = self._executions[test.id()]
             execution['result'] = label
+        setattr(result, finisher_name, types.MethodType(replacement, result))
+
+    def _override_skip_finisher(self, result, finisher_name, label):
+        origin = getattr(result, finisher_name, None)
+        if origin is None:
+            return
+        def replacement(result_self, test, reason):
+            origin(test, reason)
+            execution = self._executions[test.id()]
+            execution['result'] = label
+            execution['message'] = reason
         setattr(result, finisher_name, types.MethodType(replacement, result))
 
     def _current_seconds(self):
